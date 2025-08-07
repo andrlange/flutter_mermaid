@@ -1,0 +1,180 @@
+# analysis_options.yaml
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  # Exclude generated files and build directories
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "**/*.gr.dart"
+    - "**/*.mocks.dart"
+    - "**/generated_plugin_registrant.dart"
+    - "build/**"
+    - ".dart_tool/**"
+    - "ios/**"
+    - "android/**"
+    - "web/**"
+    - "macos/**"
+    - "windows/**"
+    - "linux/**"
+    - "backend/**"
+
+  # Enable additional language features
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+  # Strong mode settings
+  strong-mode:
+    implicit-casts: false
+    implicit-dynamic: false
+
+  # Error handling
+  errors:
+    # Treat certain warnings as errors
+    unused_import: error
+    unused_local_variable: error
+    dead_code: error
+
+    # Import rules
+    prefer_relative_imports: error
+    avoid_relative_lib_imports: error
+
+    # Const usage
+    prefer_const_constructors: info
+    prefer_const_constructors_in_immutables: info
+    prefer_const_declarations: info
+    prefer_const_literals_to_create_immutables: info
+
+    # Performance
+    avoid_unnecessary_containers: error
+    sized_box_for_whitespace: error
+
+    # Code quality
+    unnecessary_null_checks: error
+    unnecessary_null_in_if_null_operators: error
+    prefer_is_empty: error
+    prefer_is_not_empty: error
+
+# Linter rules
+linter:
+  rules:
+    # === IMPORT RULES ===
+    # Enforce relative imports for your own code
+    prefer_relative_imports: true
+    avoid_relative_lib_imports: true
+
+    # Import organization
+    directives_ordering: true
+
+    # === CONST USAGE ===
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    unnecessary_const: true
+
+    # === FORMATTING & STYLE ===
+    # Line length and formatting
+    lines_longer_than_80_chars: false  # Set to true if you want 80 char limit
+
+    # Naming conventions
+    camel_case_types: true
+    camel_case_extensions: true
+    library_names: true
+    file_names: true
+    non_constant_identifier_names: true
+    constant_identifier_names: true
+
+    # === PERFORMANCE ===
+    # Widget performance
+    sized_box_for_whitespace: true
+    use_key_in_widget_constructors: true
+
+    # Collection performance
+    prefer_collection_literals: true
+    prefer_spread_collections: true
+    prefer_for_elements_to_map_fromIterable: true
+
+    # === CODE QUALITY ===
+    # Null safety
+    unnecessary_null_checks: true
+    unnecessary_null_in_if_null_operators: true
+    unnecessary_nullable_for_final_variable_declarations: true
+
+    # Collections
+    prefer_is_empty: true
+    prefer_is_not_empty: true
+    prefer_contains: true
+
+    # Strings
+    prefer_interpolation_to_compose_strings: true
+    unnecessary_string_interpolations: true
+    prefer_adjacent_string_concatenation: true
+
+    # Functions
+    prefer_function_declarations_over_variables: true
+    unnecessary_lambdas: true
+    avoid_unnecessary_containers: true
+
+    # === FLUTTER SPECIFIC ===
+    # Widget best practices
+    avoid_print: true  # Use debugPrint instead
+    prefer_single_quotes: true
+
+    # Asset management
+    always_use_package_imports: false  # Allow relative imports for your code
+
+    # === DOCUMENTATION ===
+    # Public API documentation
+    public_member_api_docs: false  # Set to true if you want to enforce docs
+
+    # === ASYNC/AWAIT ===
+    # Async best practices
+    avoid_void_async: true
+    cancel_subscriptions: true
+    close_sinks: true
+    unawaited_futures: true
+
+    # === SECURITY ===
+    # Security best practices
+    avoid_web_libraries_in_flutter: true
+
+    # === CONSTRUCTOR RULES ===
+    sort_constructors_first: true
+    sort_unnamed_constructors_first: true
+
+    # === ADDITIONAL BEST PRACTICES ===
+    # Conditional expressions
+    prefer_conditional_assignment: true
+    prefer_if_null_operators: true
+
+    # Switch statements
+    exhaustive_cases: true
+
+    # Type annotations
+    type_annotate_public_apis: true
+    omit_local_variable_types: true
+
+    # Equality
+    avoid_equals_and_hash_code_on_mutable_classes: true
+    hash_and_equals: true
+
+    # Control flow
+    avoid_returning_null_for_void: true
+    control_flow_in_finally: true
+
+    # Exception handling
+    only_throw_errors: true
+
+    # Package management
+    secure_pubspec_urls: true
+
+    # === EXPERIMENTAL/OPTIONAL ===
+    # These might be too strict for some projects
+    # avoid_classes_with_only_static_members: true
+    # avoid_function_literals_in_foreach_calls: true
+    # prefer_final_fields: true
+    # prefer_final_in_for_each: true
+    # prefer_final_locals: true
