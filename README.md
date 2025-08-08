@@ -181,7 +181,7 @@ We welcome contributions from the community! Here's how you can help:
 
 ### Development Setup
 ```bash
-git clone https://github.com/yourusername/flutter_mermaid.git
+git clone https://github.com/andrlange/flutter_mermaid.git
 cd flutter_mermaid
 flutter pub get
 flutter test  # Ensure everything works
