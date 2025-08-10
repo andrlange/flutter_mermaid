@@ -105,7 +105,7 @@ flowchart LR
 ```dart
 final interpreter = MermaidFlowchartInterpreter();
 final result = interpreter.parseWithDetails(diagramCode);
-
+//
 print('Parse Time: ${result.parsingTimeMs}ms');
 print('Token Count: ${result.tokenCount}');
 print('Statements: ${result.document?.statements.length}');
@@ -137,8 +137,16 @@ flutter test test/interpreter_test.dart
 - [x] Complete lexer with all token types
 - [x] Full parser implementation
 - [x] Comprehensive test suite
-- [ ] Widget rendering engine
+- [x] Widget rendering engine (under development for Flowchart)
 - [ ] Basic layout algorithms
+
+>Example Flowchart Nodes using Styling and advanced Node Types.
+
+![Example of Styling and Flowchart Nodes](/assets/example1.png)
+
+![Example of Styling and Flowchart Nodes](/assets/example2.png)
+
+> All Nodes generated via CustomPainter.
 
 ### Phase 2: Enhanced Flowcharts
 - [ ] Advanced styling options
