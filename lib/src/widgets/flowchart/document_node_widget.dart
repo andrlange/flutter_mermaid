@@ -3,7 +3,7 @@
 // =============================================================================
 
 import 'base_node_widget.dart';
-import 'painter/document_node_painter extends node_painter.dart';
+import 'painter/document_node_painter.dart';
 export 'styles/node_styles.dart';
 
 class DocumentNode extends StatelessWidget {

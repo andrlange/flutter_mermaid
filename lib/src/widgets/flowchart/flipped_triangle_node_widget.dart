@@ -3,7 +3,7 @@
 // =============================================================================
 
 import 'base_node_widget.dart';
-import 'painter/flipped_triangle_node_painter extends node_painter.dart';
+import 'painter/flipped_triangle_node_painter.dart';
 export 'styles/node_styles.dart';
 
 class FlippedTriangleNode extends StatelessWidget {
