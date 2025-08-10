@@ -2,9 +2,8 @@
 // LEAN LEFT NODE WIDGET
 // =============================================================================
 
-import 'package:flutter/material.dart';
-
 import 'base_node_widget.dart';
+import 'painter/lean_left_node_painter extends node_painter.dart';
 export 'styles/node_styles.dart';
 
 class LeanLeftNode extends StatelessWidget {

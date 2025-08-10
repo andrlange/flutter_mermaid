@@ -2,9 +2,8 @@
 // NOTCHED PENTAGON NODE WIDGET
 // =============================================================================
 
-import 'package:flutter/material.dart';
-
 import 'base_node_widget.dart';
+import 'painter/notched_pentagon_node_painter extends node_painter.dart';
 export 'styles/node_styles.dart';
 
 class NotchedPentagonNode extends StatelessWidget {

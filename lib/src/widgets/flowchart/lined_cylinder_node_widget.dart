@@ -2,9 +2,8 @@
 // CYLINDER NODE WIDGET
 // =============================================================================
 
-import 'package:flutter/material.dart';
-
 import 'base_node_widget.dart';
+import 'painter/lined_cylinder_node_painter extends node_painter.dart';
 export 'styles/node_styles.dart';
 
 class LinedCylinderNode extends StatelessWidget {

@@ -2,9 +2,8 @@
 // LINED RECTANGLE NODE WIDGET
 // =============================================================================
 
-import 'package:flutter/material.dart';
-
 import 'base_node_widget.dart';
+import 'painter/lined_rectangle_node_painter extends node_painter.dart';
 export 'styles/node_styles.dart';
 
 class LinedRectangleNode extends StatelessWidget {

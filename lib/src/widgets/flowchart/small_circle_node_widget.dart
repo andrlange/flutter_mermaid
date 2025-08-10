@@ -2,9 +2,8 @@
 // SMALL CIRCLE NODE WIDGET
 // =============================================================================
 
-import 'package:flutter/material.dart';
-
 import 'base_node_widget.dart';
+import 'painter/small_circle_node_painter extends node_painter.dart';
 export 'styles/node_styles.dart';
 
 class SmallCircleNode extends StatelessWidget {

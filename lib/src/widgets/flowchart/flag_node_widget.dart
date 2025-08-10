@@ -2,9 +2,8 @@
 // FLAG NODE WIDGET
 // =============================================================================
 
-import 'package:flutter/material.dart';
-
 import 'base_node_widget.dart';
+import 'painter/flag_node_painter extends node_painter.dart';
 export 'styles/node_styles.dart';
 
 class FlagNode extends StatelessWidget {

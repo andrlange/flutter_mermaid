@@ -2,9 +2,8 @@
 // COMMENT (RIGHT) NODE WIDGET
 // =============================================================================
 
-import 'package:flutter/material.dart';
-
 import 'base_node_widget.dart';
+import 'painter/comment_right_node_painter extends node_painter.dart';
 export 'styles/node_styles.dart';
 
 class CommentRightNode extends StatelessWidget {
