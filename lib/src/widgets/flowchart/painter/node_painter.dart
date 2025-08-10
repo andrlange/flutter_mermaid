@@ -104,6 +104,57 @@ class RectangleNodePainter extends NodePainter {
   }
 }
 
+class TaggedRectangleNodePainter extends NodePainter {
+  const TaggedRectangleNodePainter({
+    required super.style,
+    required super.scaleFactor,
+    this.tagOffsetFactor = 0.10, // Abstand zur Ecke relativ zur Breite (z.B. 0.1 * Breite)
+    this.minTagOffsetPx = 6.0,   // untere Grenze in Pixeln
+  });
+
+  /// Relativer Abstand der Diagonale von der Ecke (bezogen auf die verfügbare Breite).
+  final double tagOffsetFactor;
+
+  /// Minimale absolute Distanz in Pixeln, falls die Node sehr klein ist.
+  final double minTagOffsetPx;
+
+  @override
+  void drawShape(Canvas canvas, Size size) {
+    final inset = style.borderWidth / 2;
+
+    // Innenfläche des Rechtecks
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      math.max(0, size.width  - 2 * inset),
+      math.max(0, size.height - 2 * inset),
+    );
+
+    // Grundform: Hintergrund + Rand
+    final path = Path()..addRect(rect);
+    canvas.drawPath(path, createBackgroundPaint());
+    drawDashedPath(canvas, path, createBorderPaint());
+
+    // ----- Diagonaler "Tag" unten rechts (innenliegend) -----
+    // Abstand bestimmen: Anteil an der Breite, mit Mindestgrenze
+    final tagOffset = math.max(rect.width * tagOffsetFactor, minTagOffsetPx * scaleFactor);
+
+    // leicht nach innen versetzen, damit die Linie nicht mit dem Außenrand kollidiert
+    final innerPad = math.max(1.0, style.borderWidth * 0.5);
+
+    final start = Offset(rect.right - tagOffset - innerPad, rect.bottom - innerPad); // unten, nach links versetzt
+    final end   = Offset(rect.right - innerPad, rect.bottom - tagOffset - innerPad); // rechts, nach oben versetzt
+
+    final tagPaint = Paint()
+      ..color = style.borderColor
+      ..strokeWidth = style.borderWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawLine(start, end, tagPaint);
+  }
+}
+
 class CircleNodePainter extends NodePainter {
   const CircleNodePainter({required super.style, required super.scaleFactor});
 
@@ -433,6 +484,128 @@ class DocumentNodePainter extends NodePainter {
   }
 }
 
+class TaggedDocumentNodePainter extends NodePainter {
+  const TaggedDocumentNodePainter({
+    required super.style,
+    required super.scaleFactor,
+    this.tagOffsetFactor = 0.10, // Abstand zur Ecke in Breite-Anteilen
+    this.minTagOffsetPx = 6.0,
+    this.samples = 64,           // Auflösung für Punktsuche auf der Bezier
+  });
+
+  final double tagOffsetFactor;
+  final double minTagOffsetPx;
+  final int samples;
+
+  @override
+  void drawShape(Canvas canvas, Size size) {
+    final inset = style.borderWidth / 2;
+    final waveHeight = math.min(size.height * 0.3, 10.0);
+
+    final path = Path()
+      ..moveTo(inset, inset)
+      ..lineTo(size.width - inset, inset)
+      ..lineTo(size.width - inset, size.height - waveHeight - inset);
+
+    // Welle (kubische Bezier)
+    final startX = size.width - inset;
+    final endX = inset;
+    final waveY = size.height - inset;
+
+    final p0 = Offset(startX, size.height - waveHeight - inset); // Start der Welle (rechts)
+    final p1 = Offset(startX * 0.66, waveY + waveHeight);
+    final p2 = Offset(startX * 0.33, waveY - waveHeight);
+    final p3 = Offset(endX,          waveY);
+
+    path.cubicTo(p1.dx, p1.dy, p2.dx, p2.dy, p3.dx, p3.dy);
+    path
+      ..lineTo(inset, size.height - waveHeight - inset)
+      ..close();
+
+    // Füllung + Outline
+    canvas.drawPath(path, createBackgroundPaint());
+    drawDashedPath(canvas, path, createBorderPaint());
+
+    // ===============================
+    // Diagonale unten rechts (innen)
+    // Start: exakt auf der Welle, links von der Ecke
+    // Abstand = 0.1 * Breite (mit Mindestgrenze)
+    // ===============================
+    final rectWidth = size.width - 2 * inset;
+    final tagOffset = math.max(rectWidth * tagOffsetFactor, minTagOffsetPx * scaleFactor);
+    final innerPad = math.max(1.0, style.borderWidth * 0.5);
+
+    final rightX = size.width - inset;
+    final desiredX = rightX - tagOffset; // x-Position auf der Welle links neben der Ecke
+
+    // Punkt auf der Bezier suchen, dessen x in etwa desiredX ist
+    final startOnWave = _pointOnCubicAtX(
+      p0, p1, p2, p3,
+      desiredX,
+      samples: samples,
+    );
+
+    // Endpunkt: an der rechten Kante, oberhalb der Ecke, gleicher Abstand
+    final bottomRightY = p0.dy; // = size.height - waveHeight - inset
+    final end = Offset(rightX - innerPad, bottomRightY - tagOffset - innerPad);
+
+    final tagPaint = Paint()
+      ..color = style.borderColor
+      ..strokeWidth = style.borderWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // Diagonale zeichnen (Start exakt auf der Welle)
+    canvas.drawLine(
+      Offset(startOnWave.dx, startOnWave.dy),
+      end,
+      tagPaint,
+    );
+  }
+
+  /// Grobe Suche entlang der kubischen Bezier (monoton fallendes x in deinem Fall).
+  /// Gibt den Punkt zurück, dessen x am nächsten bei desiredX liegt.
+  Offset _pointOnCubicAtX(
+      Offset p0, Offset p1, Offset p2, Offset p3, double desiredX, {int samples = 64}
+      ) {
+    var prev = p0;
+
+    for (var i = 1; i <= samples; i++) {
+      final t = i / samples;
+      final pt = _cubicPoint(p0, p1, p2, p3, t);
+
+      // Wir suchen die Stelle, wo x von >desiredX auf <=desiredX geht
+      if ((prev.dx >= desiredX && pt.dx <= desiredX) ||
+          i == samples) {
+        // Linear zwischen prev und pt interpolieren für bessere Näherung
+        final denom = (prev.dx - pt.dx);
+        final local =
+        denom.abs() < 1e-6 ? 0.0 : ((prev.dx - desiredX) / denom).clamp(0.0, 1.0);
+        final x = prev.dx + (pt.dx - prev.dx) * local;
+        final y = prev.dy + (pt.dy - prev.dy) * local;
+        return Offset(x, y);
+      }
+
+      prev = pt;
+      //prevT = t;
+    }
+
+    return p0; // fallback (sollte praktisch nicht passieren)
+  }
+
+  Offset _cubicPoint(Offset p0, Offset p1, Offset p2, Offset p3, double t) {
+    final mt = 1 - t;
+    final a = mt * mt * mt;
+    final b = 3 * mt * mt * t;
+    final c = 3 * mt * t * t;
+    final d = t * t * t;
+    return Offset(
+      a * p0.dx + b * p1.dx + c * p2.dx + d * p3.dx,
+      a * p0.dy + b * p1.dy + c * p2.dy + d * p3.dy,
+    );
+  }
+}
+
 class LinedDocumentNodePainter extends NodePainter {
   const LinedDocumentNodePainter({
     required super.style,
@@ -595,6 +768,33 @@ class TrapezoidNodePainter extends NodePainter {
   }
 }
 
+class TrapezoidTopNodePainter extends NodePainter {
+  const TrapezoidTopNodePainter({
+    required super.style,
+    required super.scaleFactor,
+  });
+
+  @override
+  void drawShape(Canvas canvas, Size size) {
+    final inset = style.borderWidth / 2;
+    final sideInset = size.width * 0.2; // bestimmt die Kürze der unteren Kante
+
+    final path = Path()
+    // Oben: lange Kante über volle Breite
+      ..moveTo(inset, inset)
+      ..lineTo(size.width - inset, inset)
+    // Unten: kürzere Kante, nach innen versetzt
+      ..lineTo(size.width - sideInset - inset, size.height - inset)
+      ..lineTo(sideInset + inset, size.height - inset)
+      ..close();
+
+    // Hintergrund
+    canvas.drawPath(path, createBackgroundPaint());
+    // Rand (ggf. gestrichelt)
+    drawDashedPath(canvas, path, createBorderPaint());
+  }
+}
+
 class SmallCircleNodePainter extends NodePainter {
   const SmallCircleNodePainter({
     required super.style,
@@ -710,6 +910,48 @@ class NotchedRectangleNodePainter extends NodePainter {
   }
 }
 
+class NotchedPentagonNodePainter extends NodePainter {
+  const NotchedPentagonNodePainter({
+    required super.style,
+    required super.scaleFactor,
+  });
+
+  @override
+  void drawShape(Canvas canvas, Size size) {
+    final inset = style.borderWidth / 2;
+
+    // Kerbentiefe: an die Node-Größe angepasst und begrenzt
+    final baseNotch = size.height * 0.15;
+    final notchMax  = math.min(size.height, size.width) * 0.45;
+    final notchSize = baseNotch.clamp(0.0, notchMax);
+
+    // Punkte:
+    // TL notch innen, TR notch innen, TR notch point, BR, BL, LL notch point
+    final topLeftInner   = Offset(inset + notchSize, inset);
+    final topRightInner  = Offset(size.width - notchSize - inset, inset);
+    final topRightNotch  = Offset(size.width - inset, inset + notchSize);
+    final bottomRight    = Offset(size.width - inset, size.height - inset);
+    final bottomLeft     = Offset(inset, size.height - inset);
+    final topLeftNotch   = Offset(inset, inset + notchSize);
+
+    final path = Path()
+      ..moveTo(topLeftInner.dx, topLeftInner.dy)       // oben: nach der linken Kerbe
+      ..lineTo(topRightInner.dx, topRightInner.dy)     // obere Kante
+      ..lineTo(topRightNotch.dx, topRightNotch.dy)     // rechte Kerbe
+      ..lineTo(bottomRight.dx, bottomRight.dy)         // rechte Seite runter
+      ..lineTo(bottomLeft.dx, bottomLeft.dy)           // unten rüber
+      ..lineTo(topLeftNotch.dx, topLeftNotch.dy)       // linke Seite hoch bis Kerbe
+      ..lineTo(topLeftInner.dx, topLeftInner.dy)       // linke Kerbe schließen
+      ..close();
+
+    // Füllung
+    canvas.drawPath(path, createBackgroundPaint());
+
+    // Kontur (ggf. gestrichelt)
+    drawDashedPath(canvas, path, createBorderPaint());
+  }
+}
+
 class HourglassNodePainter extends NodePainter {
   const HourglassNodePainter({
     required super.style,
@@ -819,7 +1061,7 @@ class HorizontalCylinderNodePainter extends NodePainter {
     final inset = style.borderWidth / 2;
     final sideWidth = size.width * 0.2;
 
-    // Main cylinder body
+    // Body (mittlerer Teil)
     final bodyRect = Rect.fromLTWH(
       sideWidth / 2,
       inset,
@@ -827,15 +1069,13 @@ class HorizontalCylinderNodePainter extends NodePainter {
       size.height - (inset * 2),
     );
 
-    // Left ellipse
+    // Ellipsen (Kappen)
     final leftEllipse = Rect.fromLTWH(
       inset,
       inset,
       sideWidth,
       size.height - (inset * 2),
     );
-
-    // Right ellipse
     final rightEllipse = Rect.fromLTWH(
       size.width - sideWidth - inset,
       inset,
@@ -843,15 +1083,32 @@ class HorizontalCylinderNodePainter extends NodePainter {
       size.height - (inset * 2),
     );
 
-    // Draw background
+    // === Füllung: Body + rechte Kappe ===
     canvas.drawRect(bodyRect, createBackgroundPaint());
-    canvas.drawOval(leftEllipse, createBackgroundPaint());
     canvas.drawOval(rightEllipse, createBackgroundPaint());
 
-    // Draw border
+    // === NEU: Füllung der linken Halbellipse ===
+    final cx = leftEllipse.center.dx;
+    final leftHalfFill = Path()
+    // Top-Center der Ellipse
+      ..moveTo(cx, leftEllipse.top)
+    // Linke Halbellipse: oben -> unten
+      ..arcTo(
+        leftEllipse,
+        -math.pi / 2, // Start oben
+        -math.pi,     // über die linke Hälfte nach unten
+        false,
+      )
+    // zurück zum Start entlang der Center-Linie
+      ..lineTo(cx, leftEllipse.top)
+      ..close();
+
+    canvas.drawPath(leftHalfFill, createBackgroundPaint());
+
+    // === Outline ===
     final borderPaint = createBorderPaint();
 
-    // Body top and bottom
+    // Obere/untere Kante des Bodys
     canvas.drawLine(
       Offset(sideWidth / 2, inset),
       Offset(size.width - sideWidth / 2, inset),
@@ -863,49 +1120,20 @@ class HorizontalCylinderNodePainter extends NodePainter {
       borderPaint,
     );
 
-    // Left and right ellipses
-    final leftPath = Path()..addOval(leftEllipse);
+    // Rechte Ellipse: kompletter Umriss
     final rightPath = Path()..addOval(rightEllipse);
-    drawDashedPath(canvas, leftPath, borderPaint);
     drawDashedPath(canvas, rightPath, borderPaint);
-  }
-}
 
-class CurvedTrapezoidNodePainter extends NodePainter {
-  const CurvedTrapezoidNodePainter({
-    required super.style,
-    required super.scaleFactor,
-  });
-
-  @override
-  void drawShape(Canvas canvas, Size size) {
-    final inset = style.borderWidth / 2;
-    final topWidth = size.width * 0.8;
-    //final bottomWidth = size.width - (inset * 2);
-    final topStart = (size.width - topWidth) / 2;
-
-    final path = Path()
-      ..moveTo(topStart, inset)
-      ..lineTo(topStart + topWidth, inset);
-
-    // Curved right side
-    path.quadraticBezierTo(
-      size.width - inset,
-      size.height * 0.3,
-      size.width - inset,
-      size.height - inset,
-    );
-
-    path.lineTo(inset, size.height - inset);
-
-    // Curved left side
-    path.quadraticBezierTo(inset, size.height * 0.3, topStart, inset);
-
-    // Draw background
-    canvas.drawPath(path, createBackgroundPaint());
-
-    // Draw border
-    drawDashedPath(canvas, path, createBorderPaint());
+    // Linke Ellipse: nur die äußere Halbellipse als Kontur
+    final leftArcPath = Path()
+      ..moveTo(cx, leftEllipse.top)
+      ..arcTo(
+        leftEllipse,
+        -math.pi / 2, // Start oben
+        -math.pi,     // linke Hälfte
+        false,
+      );
+    drawDashedPath(canvas, leftArcPath, borderPaint);
   }
 }
 
@@ -1105,45 +1333,239 @@ class StackedRectangleNodePainter extends NodePainter {
   const StackedRectangleNodePainter({
     required super.style,
     required super.scaleFactor,
+    this.sizeFactor = 0.9,     // 90% der verfügbaren Fläche
+    this.shiftFactor = 0.1,   // kleiner Versatz (4% der kleineren Kante)
   });
+
+  /// Anteil der Node-Fläche, den jede Box einnimmt (Breite & Höhe)
+  final double sizeFactor;
+
+  /// Relativer Versatz der hinteren Boxen (bezogen auf min(contentW, contentH))
+  final double shiftFactor;
 
   @override
   void drawShape(Canvas canvas, Size size) {
     final inset = style.borderWidth / 2;
-    final stackOffset = size.width * 0.1;
 
-    // Back rectangles (stacked effect)
-    final rect1 = Rect.fromLTWH(
-      stackOffset + inset,
-      inset,
-      size.width - stackOffset - (inset * 2),
-      size.height - stackOffset - (inset * 2),
+    // Verfügbare Fläche abzüglich Rand
+    final contentW = math.max(0.0, size.width  - inset * 2);
+    final contentH = math.max(0.0, size.height - inset * 2);
+
+    // Zielgröße: 90% der verfügbaren Fläche
+    final w = contentW * sizeFactor;
+    final h = contentH * sizeFactor;
+
+    // Kleiner Shift nach oben rechts
+    final base = math.min(contentW, contentH);
+    final shift = math.max(base * shiftFactor, 2.0 * scaleFactor);
+
+    // Vorderste Box: unten links ausgerichtet (nicht transparent)
+    final frontLeft = Offset(inset, inset + (contentH - h));
+    final frontRect = Rect.fromLTWH(frontLeft.dx, frontLeft.dy, w, h);
+
+    // Mittlere Box: leicht nach oben rechts
+    final midRect = frontRect.shift(Offset(shift, -shift));
+
+    // Hinterste Box: noch ein bisschen weiter nach oben rechts
+    final backRect = frontRect.shift(Offset(2 * shift, -2 * shift));
+
+    // Paints
+    final bgFront = createBackgroundPaint(); // volle Deckkraft
+    final bgMid   = Paint()
+      ..color = style.backgroundColor.withValues(alpha:0.85)
+      ..style = PaintingStyle.fill;
+    final bgBack  = Paint()
+      ..color = style.backgroundColor.withValues(alpha:0.7)
+      ..style = PaintingStyle.fill;
+
+    final borderFront = createBorderPaint();
+    final borderMid   = Paint()
+      ..color = style.borderColor.withValues(alpha:0.9)
+      ..strokeWidth = style.borderWidth
+      ..style = PaintingStyle.stroke;
+    final borderBack  = Paint()
+      ..color = style.borderColor.withValues(alpha:0.75)
+      ..strokeWidth = style.borderWidth
+      ..style = PaintingStyle.stroke;
+
+    // Zeichnen: von hinten nach vorne
+    canvas.drawRect(backRect, bgBack);
+    drawDashedPath(canvas, Path()..addRect(backRect), borderBack);
+
+    canvas.drawRect(midRect, bgMid);
+    drawDashedPath(canvas, Path()..addRect(midRect), borderMid);
+
+    canvas.drawRect(frontRect, bgFront); // unten links, nicht transparent
+    drawDashedPath(canvas, Path()..addRect(frontRect), borderFront);
+  }
+}
+
+class DelayNopePainter extends NodePainter {
+  const DelayNopePainter({
+    required super.style,
+    required super.scaleFactor,
+    this.boxFactor = 0.6, // 80% von Breite/Höhe
+  });
+
+  /// Anteil der verfügbaren Fläche, den die Box (ohne Halbkreis) einnimmt.
+  final double boxFactor;
+
+  @override
+  void drawShape(Canvas canvas, Size size) {
+    final inset = style.borderWidth / 2;
+
+    // Verfügbare Fläche innerhalb des Randes
+    final contentW = math.max(0.0, size.width  - 2 * inset);
+    final contentH = math.max(0.0, size.height - 2 * inset);
+
+    // Zielgröße: 80% Breite/Höhe
+    final boxW = contentW * boxFactor;
+    final boxH = contentH * boxFactor;
+
+    // Grund-Position: zentriert
+    double left   = inset + (contentW - boxW) / 2;
+    final top     = inset + (contentH - boxH) / 2;
+    double rightX = left + boxW;
+    final bottom  = top + boxH;
+
+    // Halbkreis-Geometrie (Durchmesser = Box-Höhe)
+    double r = boxH / 2.0;
+    final cy = (top + bottom) / 2.0;
+
+    // Sicherstellen, dass der Halbkreis rechts nicht aus dem Content-Bereich ragt.
+    // Maximal erlaubter Radius, damit x_max <= inset + contentW.
+    final maxR = (inset + contentW) - rightX;
+    if (r > maxR) {
+      // Schiebe die Box so weit nach links, dass der Halbkreis hineinpasst,
+      // solange links noch Platz ist.
+      final extra = r - maxR;
+      final maxShiftLeft = rightX - inset - boxW; // wie weit können wir nach links gehen
+      final shift = math.min(extra, maxShiftLeft);
+      left   -= shift;
+      rightX -= shift;
+    }
+
+    // Falls immer noch zu groß (extreme Seitenverhältnisse), Radius begrenzen:
+    r = math.min(r, (inset + contentW) - rightX);
+
+    // Path: oben links → oben rechts (Boxkante) → Halbkreis nach unten →
+    // unten links → schließen
+    final path = Path()
+      ..moveTo(left, top)          // oben links
+      ..lineTo(rightX, top);       // oben rechts (Startpunkt des Halbkreises)
+
+    // Halbkreis (rechts) – Bounding-Rect des Vollkreises
+    final circleRect = Rect.fromCircle(center: Offset(rightX, cy), radius: r);
+
+    // Von oben (Startwinkel -90°) nach unten (+90°), positive Sweep (clockwise)
+    path.arcTo(
+      circleRect,
+      -math.pi / 2,  // Start: oben
+      math.pi,       // 180° Bogen nach unten
+      false,
     );
 
-    final rect2 = Rect.fromLTWH(
-      stackOffset / 2 + inset,
-      stackOffset / 2 + inset,
-      size.width - stackOffset / 2 - (inset * 2),
-      size.height - stackOffset / 2 - (inset * 2),
-    );
+    // Untere Kante zurück nach links
+    path
+      ..lineTo(left, bottom)
+      ..close();
 
-    final rect3 = Rect.fromLTWH(
-      inset,
-      stackOffset + inset,
-      size.width - (inset * 2),
-      size.height - stackOffset - (inset * 2),
-    );
+    // Füllung
+    canvas.drawPath(path, createBackgroundPaint());
 
-    // Draw backgrounds (stacked)
-    canvas.drawRect(rect1, createBackgroundPaint());
-    canvas.drawRect(rect2, createBackgroundPaint());
-    canvas.drawRect(rect3, createBackgroundPaint());
+    // Outline (ggf. gestrichelt)
+    final stroke = createBorderPaint()
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    drawDashedPath(canvas, path, stroke);
+  }
+}
 
-    // Draw borders
-    final borderPaint = createBorderPaint();
-    drawDashedPath(canvas, Path()..addRect(rect1), borderPaint);
-    drawDashedPath(canvas, Path()..addRect(rect2), borderPaint);
-    drawDashedPath(canvas, Path()..addRect(rect3), borderPaint);
+class CurvedTrapezoidNodePainter extends NodePainter {
+  const CurvedTrapezoidNodePainter({
+    required super.style,
+    required super.scaleFactor,
+    this.boxFactor = 0.8,      // Anteil der verfügbaren Fläche für das Rechteck
+    this.spikeFactor = 0.10,   // Länge der linken Spitze relativ zu style.width
+    this.minSpikePx = 6.0,     // Mindestlänge der Spitze in px
+  });
+
+  final double boxFactor;
+  final double spikeFactor;
+  final double minSpikePx;
+
+  @override
+  void drawShape(Canvas canvas, Size size) {
+    final inset = style.borderWidth / 2;
+
+    // Verfügbare Fläche (innen)
+    final contentW = math.max(0.0, size.width  - 2 * inset);
+    final contentH = math.max(0.0, size.height - 2 * inset);
+
+    // Boxgröße
+    final boxW = contentW * boxFactor;
+    final boxH = contentH * boxFactor;
+
+    // Zentrierte Position
+    double left   = inset + (contentW - boxW) / 2;
+    final top     = inset + (contentH - boxH) / 2;
+    double rightX = left + boxW;
+    final bottom  = top + boxH;
+
+    // Rechte Halbkreis-Kappe
+    double r = boxH / 2.0;
+    final cy = (top + bottom) / 2.0;
+
+    // Sicherstellen, dass die Kappe rechts reinpasst
+    final maxR = (inset + contentW) - rightX;
+    if (r > maxR) {
+      final extra = r - maxR;
+      final maxShiftLeft = rightX - inset - boxW;
+      final shift = math.min(extra, maxShiftLeft);
+      left   -= shift;
+      rightX -= shift;
+    }
+    r = math.min(r, (inset + contentW) - rightX);
+
+    // Spike-Länge (links nach außen)
+    final styleW = _tryGetStyleWidth() ?? size.width;
+    final spikeLen = math.max(styleW * spikeFactor, minSpikePx * scaleFactor);
+
+    // Pfad: oben links → oben rechts → Halbkreis → unten links → Spitze → oben links
+    final path = Path()
+      ..moveTo(left, top)          // oben links
+      ..lineTo(rightX, top);       // oben rechts (Start Halbkreis)
+
+    // Halbkreis rechts (oben → unten, 180°)
+    final circleRect = Rect.fromCircle(center: Offset(rightX, cy), radius: r);
+    path.arcTo(circleRect, -math.pi / 2, math.pi, false);
+
+    // Unterkante zurück nach links-unten
+    path.lineTo(left, bottom);
+
+    // Spitze: von unten links zur mittigen Spitze nach außen, dann hoch zu oben links
+    final tip = Offset(left - spikeLen, cy);
+    path
+      ..lineTo(tip.dx, tip.dy)   // untere Ecke → Spitze
+      ..lineTo(left, top)        // Spitze → obere Ecke
+      ..close();
+
+    // Füllung
+    canvas.drawPath(path, createBackgroundPaint());
+
+    // Outline
+    final stroke = createBorderPaint()
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+    drawDashedPath(canvas, path, stroke);
+  }
+
+  double? _tryGetStyleWidth() {
+    try {
+      final v = (style as dynamic).width;
+      if (v is double && v > 0) return v;
+    } catch (_) {}
+    return null;
   }
 }
 
@@ -1235,39 +1657,91 @@ class CrossedCircleNodePainter extends NodePainter {
 }
 
 class FlagNodePainter extends NodePainter {
-  const FlagNodePainter({required super.style, required super.scaleFactor});
+  const FlagNodePainter({
+    required super.style,
+    required super.scaleFactor,
+    this.segments = 64,     // Mehr Segmente für glatte Wellen
+    this.ampFactor = 0.12,  // Amplitude relativ zur Höhe
+  });
+
+  final int segments;
+  final double ampFactor;
 
   @override
   void drawShape(Canvas canvas, Size size) {
     final inset = style.borderWidth / 2;
-    final waveWidth = size.width / 6;
-    final waveHeight = size.height / 8;
 
-    final path = Path()..moveTo(inset, inset);
+    // Falls NodeStyle width/height hat, diese nutzen
+    final double w = _tryGetStyleWidth() ?? size.width;
+    final double h = _tryGetStyleHeight() ?? size.height;
 
-    // Top edge with waves
-    for (int i = 0; i < 3; i++) {
-      final x = (size.width - (inset * 2)) * i / 3 + inset;
-      final nextX = (size.width - (inset * 2)) * (i + 1) / 3 + inset;
-      final midX = (x + nextX) / 2;
-      final y = inset;
-      final controlY = (i % 2 == 0) ? y - waveHeight : y + waveHeight;
+    final leftX = inset;
+    final rightX = w - inset;
 
-      path.quadraticBezierTo(midX, controlY, nextX, y);
+    // Amplitude
+    final double amp = math.min(h * ampFactor, 14.0 * scaleFactor);
+
+    // Mittellinien
+    final double yTopMid = inset + amp;
+    final double yBottomMid = h - inset - amp;
+
+    final path = Path();
+
+    // ===== Obere Welle: volle Sinusperiode (-π .. +π) =====
+    double t0 = -math.pi;
+    double t1 = math.pi;
+    path.moveTo(leftX, yTopMid + amp * math.sin(t0));
+
+    for (int i = 1; i <= segments; i++) {
+      final double t = t0 + (t1 - t0) * (i / segments);
+      final double x = _lerp(leftX, rightX, i / segments);
+      final double y = yTopMid + amp * math.sin(t);
+      path.lineTo(x, y);
     }
 
-    path
-      ..lineTo(size.width - inset, size.height / 2)
-      ..lineTo(size.width - waveWidth - inset, size.height - inset)
-      ..lineTo(inset, size.height - inset)
-      ..close();
+    // Rechte Kante runter
+    path.lineTo(rightX, yBottomMid + amp * math.sin(t1));
 
-    // Draw background
+    // ===== Untere Welle: auch volle Sinusperiode (-π .. +π) =====
+    for (int i = 1; i <= segments; i++) {
+      final double t = t1 - (t1 - t0) * (i / segments); // Rückwärts
+      final double x = _lerp(rightX, leftX, i / segments);
+      final double y = yBottomMid + amp * math.sin(t);
+      path.lineTo(x, y);
+    }
+
+    // Linke Kante hoch
+    path.lineTo(leftX, yTopMid + amp * math.sin(t0));
+
+    path.close();
+
+    // Füllung
     canvas.drawPath(path, createBackgroundPaint());
 
-    // Draw border
-    drawDashedPath(canvas, path, createBorderPaint());
+    // Outline
+    final border = createBorderPaint()
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    drawDashedPath(canvas, path, border);
   }
+
+  double? _tryGetStyleWidth() {
+    try {
+      final v = (style as dynamic).width;
+      if (v is double && v > 0) return v;
+    } catch (_) {}
+    return null;
+  }
+
+  double? _tryGetStyleHeight() {
+    try {
+      final v = (style as dynamic).height;
+      if (v is double && v > 0) return v;
+    } catch (_) {}
+    return null;
+  }
+
+  double _lerp(double a, double b, double t) => a + (b - a) * t;
 }
 
 class OddNodePainter extends NodePainter {
@@ -1490,6 +1964,59 @@ class BoltNodePainter extends NodePainter {
       ..strokeJoin = StrokeJoin.round
       ..strokeCap = StrokeCap.round;
     drawDashedPath(canvas, boltPath, outline);
+  }
+}
+
+class ForkNodePainter extends NodePainter {
+  const ForkNodePainter({
+    required super.style,
+    required super.scaleFactor,
+  });
+
+  @override
+  void drawShape(Canvas canvas, Size size) {
+    final inset = style.borderWidth / 2;
+
+    // Basis aus style.width/height, sonst aus size
+    final baseW = _tryGetStyleWidth()  ?? size.width;
+    final baseH = _tryGetStyleHeight() ?? size.height;
+
+    // Zielmaße: 70% Breite, 35% Höhe
+    final targetW = baseW * 0.70;
+    final targetH = baseH * 0.35;
+
+    // Zentriert in der verfügbaren Zeichenfläche platzieren
+    final left = (size.width  - targetW) / 2 + inset;
+    final top  = (size.height - targetH) / 2 + inset;
+
+    // Innenmaß so wählen, dass der Stroke nicht herausragt
+    final rectW = math.max(0.0, targetW - style.borderWidth);
+    final rectH = math.max(0.0, targetH - style.borderWidth);
+
+    final rect = Rect.fromLTWH(left, top, rectW, rectH);
+
+    // Füllung
+    canvas.drawRect(rect, createBackgroundPaint());
+
+    // Kontur (ggf. gestrichelt)
+    final path = Path()..addRect(rect);
+    drawDashedPath(canvas, path, createBorderPaint());
+  }
+
+  double? _tryGetStyleWidth() {
+    try {
+      final v = (style as dynamic).width;
+      if (v is double && v > 0) return v;
+    } catch (_) {}
+    return null;
+  }
+
+  double? _tryGetStyleHeight() {
+    try {
+      final v = (style as dynamic).height;
+      if (v is double && v > 0) return v;
+    } catch (_) {}
+    return null;
   }
 }
 

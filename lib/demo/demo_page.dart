@@ -175,6 +175,7 @@ class NodeWidgetDemo extends StatelessWidget {
     final nodeWidgets = [
       // Basic Shapes
       ('Rectangle', const RectangleNode(text: 'Process')),
+      ('Tagged Rectangle', const TaggedRectangleNode(text: 'Process')),
       ('Circle', const CircleNode(text: 'Start')),
       ('Diamond', const DiamondNode(text: 'Decision?')),
       ('Stadium', const StadiumNode(text: 'Terminal')),
@@ -183,7 +184,8 @@ class NodeWidgetDemo extends StatelessWidget {
 
       // Geometric Variants
       ('Rounded Rectangle', const RoundedRectangleNode(text: 'Event')),
-      ('Trapezoid', const TrapezoidNode(text: 'Manual\nOperation')),
+      ('Trapezoid', const TrapezoidNode(text: 'Priority\naction')),
+      ('Trapezoid Top', const TrapezoidTopNode(text: 'Manual\nOperation')),
       ('Small Circle', const SmallCircleNode(text: 'Start')),
       ('Double Circle', const DoubleCircleNode(text: 'Stop')),
 
@@ -195,6 +197,7 @@ class NodeWidgetDemo extends StatelessWidget {
         const HorizontalCylinderNode(text: 'Direct\nAccess'),
       ),
       ('Document', const DocumentNode(text: 'Document')),
+      ('Tagged Document', const TaggedDocumentNode(text: 'Document')),
 
       ('Lined Document', const LinedDocumentNode(text: 'Lined Document')),
       (
@@ -206,6 +209,7 @@ class NodeWidgetDemo extends StatelessWidget {
         ),
       ),
       ('Odd', const OddNode(text: 'Odd Shape')),
+      ('Fork', const ForkNode()),
 
       ('Bow Tie Rectangle', const BowTieRectangleNode(text: 'Stored\nData')),
 
@@ -230,9 +234,11 @@ class NodeWidgetDemo extends StatelessWidget {
 
       // Special Shapes
       ('Notched Rectangle', const NotchedRectangleNode(text: 'Card')),
+      ('Notched Pentagon', const NotchedPentagonNode(text: 'Loop limit')),
       ('Hourglass', const HourglassNode()),
       ('Flipped Triangle', const FlippedTriangleNode(text: 'Manual\nFile')),
       ('Flag', const FlagNode(text: 'Paper\nTape')),
+      ('Delay', const DelayNode(text: 'Delay')),
       ('Comment (left)', const CommentLeftNode(text: 'Comment left')),
       ('Comment (right)', const CommentRightNode(text: 'Comment right')),
       ('Braces', const BracesNode(text: 'Comment')),
